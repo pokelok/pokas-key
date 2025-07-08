@@ -1,0 +1,217 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+local savedPosition = nil
+local flySpeed = 45
+local godmodeEnabled = false
+local infiniteJumpEnabled = false
+local stealActive = false
+local espEnabled = false
+
+-- ESP (ciano e maior)
+local function updateESP()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+			local head = plr.Character.Head
+			if not head:FindFirstChild("ESPBox") and espEnabled then
+				local gui = Instance.new("BillboardGui")
+				gui.Name = "ESPBox"
+				gui.Adornee = head
+				gui.AlwaysOnTop = true
+				gui.Size = UDim2.new(0, 20, 0, 20)
+				gui.Parent = head
+
+				local frame = Instance.new("Frame", gui)
+				frame.Size = UDim2.new(1, 0, 1, 0)
+				frame.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+				frame.BackgroundTransparency = 0.3
+				frame.BorderSizePixel = 0
+				local corner = Instance.new("UICorner", frame)
+				corner.CornerRadius = UDim.new(1, 0)
+			end
+		end
+	end
+end
+
+local function clearESP()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character and plr.Character:FindFirstChild("Head") then
+			local gui = plr.Character.Head:FindFirstChild("ESPBox")
+			if gui then gui:Destroy() end
+		end
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	if espEnabled then
+		updateESP()
+	else
+		clearESP()
+	end
+end)
+
+local function stealWithSpeed(active)
+	stealActive = active
+	if not active or not savedPosition then return end
+
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not (hrp and hum) then return end
+
+	coroutine.wrap(function()
+		while stealActive and (hrp.Position - savedPosition).Magnitude > 3 do
+			for _ = 1, 3 do
+				if not stealActive then return end
+				hum:MoveTo(savedPosition)
+				hum:ChangeState(Enum.HumanoidStateType.Jumping)
+				task.wait(0.25)
+			end
+			local walkTime = math.clamp((hrp.Position - savedPosition).Magnitude / flySpeed, 0.4, 1.5)
+			local t0 = tick()
+			while tick() - t0 < walkTime and stealActive do
+				hum:MoveTo(savedPosition)
+				task.wait(0.1)
+			end
+		end
+	end)()
+end
+
+RunService.Heartbeat:Connect(function()
+	if godmodeEnabled then
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.Health = hum.MaxHealth
+			hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		end
+	end
+end)
+
+UIS.JumpRequest:Connect(function()
+	if infiniteJumpEnabled then
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end
+end)
+
+local function savePosition()
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		savedPosition = hrp.Position
+	end
+end
+
+-- GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "StealthGui"
+screenGui.ResetOnSpawn = false
+
+-- Painel principal
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 260, 0, 360)
+frame.Position = UDim2.new(0.5, -130, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "GhostOps HUB"
+title.TextColor3 = Color3.new(0, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+
+local function createToggle(name, posY, callback)
+	local btn = Instance.new("TextButton", frame)
+	btn.Size = UDim2.new(0.9, 0, 0, 30)
+	btn.Position = UDim2.new(0.05, 0, 0, posY)
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.TextSize = 14
+	btn.Font = Enum.Font.Gotham
+	btn.Text = "[ OFF ] "..name
+	btn.AutoButtonColor = false
+
+	local active = false
+	btn.MouseButton1Click:Connect(function()
+		active = not active
+		btn.Text = (active and "[ ON  ] " or "[ OFF ] ")..name
+		callback(active)
+	end)
+end
+
+local function createButton(name, posY, callback)
+	local btn = Instance.new("TextButton", frame)
+	btn.Size = UDim2.new(0.9, 0, 0, 30)
+	btn.Position = UDim2.new(0.05, 0, 0, posY)
+	btn.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.TextSize = 14
+	btn.Font = Enum.Font.Gotham
+	btn.Text = name
+	btn.AutoButtonColor = true
+	btn.MouseButton1Click:Connect(callback)
+end
+
+-- Opções
+createToggle("Godmode", 50, function(state)
+	godmodeEnabled = state
+end)
+
+createToggle("Infinite Jump", 90, function(state)
+	infiniteJumpEnabled = state
+end)
+
+createToggle("Save Position", 130, function()
+	savePosition()
+end)
+
+createToggle("Steal Mode", 170, function(state)
+	stealWithSpeed(state)
+end)
+
+createToggle("ESP Players", 210, function(state)
+	espEnabled = state
+	if not state then clearESP() end
+end)
+
+createButton("🔁 Reiniciar Personagem", 260, function()
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then hum.Health = 0 end
+end)
+
+createButton("🚪 Sair do Jogo", 300, function()
+	player:Kick("Você saiu do jogo.")
+end)
+
+-- Botão engrenagem (grande e arrastável)
+local minimizeBtn = Instance.new("TextButton", screenGui)
+minimizeBtn.Size = UDim2.new(0, 60, 0, 60)
+minimizeBtn.Position = UDim2.new(0, 10, 0.5, -30)
+minimizeBtn.BackgroundColor3 = Color3.new(0, 0, 0)
+minimizeBtn.Text = "⚙"
+minimizeBtn.TextColor3 = Color3.new(0, 1, 1)
+minimizeBtn.TextScaled = true
+minimizeBtn.ZIndex = 10
+Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 10)
+minimizeBtn.Active = true
+minimizeBtn.Draggable = true
+
+-- Mostrar/Ocultar painel
+local panelVisible = true
+minimizeBtn.MouseButton1Click:Connect(function()
+	panelVisible = not panelVisible
+	frame.Visible = panelVisible
+end)
